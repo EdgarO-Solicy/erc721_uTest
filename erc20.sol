@@ -11,10 +11,11 @@ contract SolicyCoinERC20 is ERC20 {
     address public owner;
     uint256 totalSupply_;
 
+    string public constant name = "Solicy";
+    string public constant symbol = "Sol";
+    uint8 public constant decimals = 18;
+
     constructor(uint256 total, uint8 __decimal, uint8 __fee) ERC20("Solicy", "SOL"){
-        string public constant name = "Solicy";
-        string public constant symbol = "Sol";
-        uint8 public constant decimals = 18;
         owner = msg.sender;
         _decimal = __decimal;
         _fee = __fee;
