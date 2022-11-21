@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "hardhat/console.sol";
 
-contract Erc721 is Ownable, ERC721("SolicyNFT", "HNFT"){
+contract Erc721 is Ownable, ERC721("SolicyNFT", "HNFT") {
     uint256 tokenId = 0;
     string public _name;
     string public _symbol;
+    string public __baseURI;
     string public uriSuffix = ".json";
     mapping(address => TokenMetaData[]) public ownershipRecord;
     mapping(uint256 => bool) internal lockRecord;
@@ -27,22 +29,29 @@ contract Erc721 is Ownable, ERC721("SolicyNFT", "HNFT"){
         require(lockRecord[tokenId_] == false, "The token is loked");
         _;
     }
-    
-    constructor(string memory name_, string memory symbol_) {
+
+    constructor(string memory name_, string memory symbol_, string memory baseURI_) {
         _name = name_;
         _symbol = symbol_;
-    }
-
-    function _baseURI() internal view virtual override returns (string memory) {
-        return "https://ipfs.io/ipfs/QmSsP68DJ3BrXSFFb3e5t7xtLnXZ2mRMutrUkvYiL5yXK6/";
+        __baseURI = baseURI_;
     }
 
     function name() public view virtual override returns (string memory) {
         return _name;
     }
 
-    function symbol() public view virtual override returns(string memory) {
+    function symbol() public view virtual override returns (string memory) {
         return _symbol;
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return __baseURI;
+    }
+
+    function tokenURI(uint256 tokenId_) public view virtual override returns (string memory) {
+        _requireMinted(tokenId_);
+
+        return bytes(_baseURI()).length > 0 ? string(abi.encodePacked(_baseURI(), Strings.toString(tokenId_), uriSuffix)) : "";
     }
 
     function mintToken(address recipient, string memory name_) onlyOwner public {
@@ -50,12 +59,6 @@ contract Erc721 is Ownable, ERC721("SolicyNFT", "HNFT"){
         _safeMint(recipient, tokenId);
         ownershipRecord[recipient].push(TokenMetaData(name_, tokenId, 0, 0, tokenURI(tokenId), 0, 0));
         tokenId = tokenId + 1;
-    }
-
-    function tokenURI(uint256 tokenId_) public view virtual override returns (string memory) {
-        _requireMinted(tokenId_);
-
-        return bytes(_baseURI()).length > 0 ? string(abi.encodePacked(_baseURI(), Strings.toString(tokenId_), uriSuffix)) : "";
     }
 
     function transfer(
