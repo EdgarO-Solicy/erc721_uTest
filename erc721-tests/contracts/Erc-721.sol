@@ -7,12 +7,14 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "hardhat/console.sol";
 
-contract Erc721 is ERC721, Ownable {
+
+contract Erc721 is Ownable, ERC721 {
+// contract Erc721 is Ownable, ERC721("SolicyNFT", "HNFT") {
     uint256 tokenId = 0;
     string public __baseURI;
     string public _name;
     string public _symbol;
-    mapping(uint256 => TokenMetaData) public metadataRecord;
+    mapping(uint256 => TokenMetaData) internal metadataRecord;
     mapping(uint256 => bool) internal lockRecord;
 
     struct TokenMetaData {
@@ -37,6 +39,12 @@ contract Erc721 is ERC721, Ownable {
 
     constructor(string memory name_, string memory symbol_, string memory baseURI_) ERC721(name_, symbol_) {
         __baseURI = baseURI_;
+        _name = name_;
+        _symbol = symbol_;
+    }
+
+    function getMetadataRecord(uint256 tokenId_) public view returns(TokenMetaData memory) {
+        return metadataRecord[tokenId_];
     }
 
     function getLockRecord(uint256 tokenId_) public view returns(bool) {
@@ -79,33 +87,32 @@ contract Erc721 is ERC721, Ownable {
         address from_,
         address to_,
         uint256 tokenId_
-    ) public override virtual isNotLocked(tokenId_) tokenOwner(tokenId_) {
-        
+    ) public override virtual isNotLocked(tokenId_) { // <-- tokenOwner(tokenId_)
         _transfer(from_, to_, tokenId_);
     }
-
+    // + 
     function killToken(uint256 tokenIdToBurn, uint256 tokenIdToTransferExp) external virtual isNotLocked(tokenId) {
         require(_ownerOf(tokenIdToBurn) != address(0), "ERC721: invalid token ID");
-        require(_ownerOf(tokenIdToTransferExp) != address(0), "ERC721: invalid reciver token ID");
+        require(_ownerOf(tokenIdToTransferExp) != address(0), "ERC721: invalid receiver token ID");
 
         uint senderexp = (metadataRecord[tokenIdToBurn].experience * 80) / 100;
         metadataRecord[uint256(tokenIdToTransferExp)].experience += senderexp;
 
         _burn(tokenIdToBurn);
     }
-
-    function burn(uint256 tokenIdToBurn) external virtual isNotLocked(tokenId) {
-        require(false, "Explicitely burning of token is bloked");
+    // +
+    function burn(uint256 tokenIdToBurn) external {
+        require(false, "Explicitly burning of token is blocked");
         _burn(tokenIdToBurn);
     }
-
+    // +
     function lockToken(uint256 tokenId_, uint256 daysToLock) public isNotLocked(tokenId_) {
         metadataRecord[tokenId_].lockedTimeStamp = block.timestamp;
         metadataRecord[tokenId_].daysToLock = daysToLock;
 
         lockRecord[tokenId_] = true;
     }
-
+    // +
     function unLockToken(uint256 tokenId_) public {
         uint256 lockedTimeStamp_ =  metadataRecord[tokenId_].lockedTimeStamp;
         uint256 daysToLock_ = metadataRecord[tokenId_].daysToLock;
@@ -121,20 +128,20 @@ contract Erc721 is ERC721, Ownable {
         metadataRecord[tokenId_].daysToLock = 0;
         lockRecord[tokenId_] = false;
     }
-
+    // +
     function claimExp(uint256 tokenId_) public {
-        uint diff = (block.timestamp -  metadataRecord[tokenId_].lockedTimeStamp) / 60 / 60 / 24; 
+        uint diff = (block.timestamp -  metadataRecord[tokenId_].lockedTimeStamp) / 60 / 60 / 24;
         addExp(tokenId_, diff * 100);
         
         metadataRecord[tokenId_].lockedTimeStamp = block.timestamp;
         metadataRecord[tokenId_].daysToLock -= diff;
     }
-
-    function addExp(uint256 tokenId_, uint256 expToAdd) public {
+    // +
+    function addExp(uint256 tokenId_, uint256 expToAdd) public { // <-- tokenOwner(tokenId_)
         metadataRecord[tokenId_].experience += expToAdd;
     }
-
-    function runkUp(uint tokenId_) external tokenOwner(tokenId_) {
+    //  +
+    function rankUp(uint tokenId_) external { // <-- tokenOwner(tokenId_)
         uint experience_ = metadataRecord[tokenId_].experience;
         uint rank_ = (experience_ - (experience_ % 1000)) / 1000;
 
