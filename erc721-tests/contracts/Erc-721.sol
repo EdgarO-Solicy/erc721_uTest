@@ -28,9 +28,14 @@ contract Erc721 is Ownable, ERC721 {
     }
 
     modifier isNotLocked (uint256 tokenId_) {
-        require(lockRecord[tokenId_] == false, "The token is loked");
+        require(getLockRecord(tokenId_), "The token is loked");
         _;
     }
+
+    // modifier isLocked (uint256 tokenId_) {
+    //     require(!getLockRecord(tokenId_), "The token is not loked");
+    //     _;
+    // }
 
     modifier tokenOwner (uint256 tokenId_) {
         require((msg.sender == ownerOf(tokenId_)), "Don't have permission to manipulate this token");
@@ -130,6 +135,7 @@ contract Erc721 is Ownable, ERC721 {
     }
     // +
     function claimExp(uint256 tokenId_) public {
+        require(!getLockRecord(tokenId_), "Only locked tokens can claim experience");
         uint diff = (block.timestamp -  metadataRecord[tokenId_].lockedTimeStamp) / 60 / 60 / 24;
         addExp(tokenId_, diff * 100);
         
@@ -137,11 +143,11 @@ contract Erc721 is Ownable, ERC721 {
         metadataRecord[tokenId_].daysToLock -= diff;
     }
     // +
-    function addExp(uint256 tokenId_, uint256 expToAdd) public { // <-- tokenOwner(tokenId_)
+    function addExp(uint256 tokenId_, uint256 expToAdd) public tokenOwner(tokenId_) {
         metadataRecord[tokenId_].experience += expToAdd;
     }
-    //  +
-    function rankUp(uint tokenId_) external { // <-- tokenOwner(tokenId_)
+    // +
+    function rankUp(uint tokenId_) external tokenOwner(tokenId_) {
         uint experience_ = metadataRecord[tokenId_].experience;
         uint rank_ = (experience_ - (experience_ % 1000)) / 1000;
 

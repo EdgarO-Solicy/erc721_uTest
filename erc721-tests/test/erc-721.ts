@@ -5,8 +5,6 @@ import { mine } from "@nomicfoundation/hardhat-network-helpers";
 
 const BigNumber = require("bignumber.js");
 
-const Web3EthAccounts = require("web3-eth-accounts");
-const account = new Web3EthAccounts("ws://localhost:8546");
 
 // smth wrong with this arithmetics. Days more than 10 going with +1
 async function mineNDayBlocks(n: number) {
@@ -16,18 +14,22 @@ async function mineNDayBlocks(n: number) {
 describe("ERC 721", () => {
   let erc721: Erc721;
   let tempAccount_1: any;
+  let owner: any;
+  let account_1: any;
+  let account_2: any;
   let tokenId: typeof BigNumber;
 
   beforeEach(async () => {
+    [owner, account_1, account_2] = await ethers.getSigners();
+
     const Erc721 = await ethers.getContractFactory("Erc721");
-    erc721 = await Erc721.deploy(
+    erc721 = await Erc721.connect(owner).deploy(
       "SolicyNFT",
       "HNFT",
       "https://ipfs.io/ipfs/QmSsP68DJ3BrXSFFb3e5t7xtLnXZ2mRMutrUkvYiL5yXK6/"
     );
-    tempAccount_1 = account.create();
 
-    await erc721.mintToken(tempAccount_1.address, "Solicy");
+    await erc721.mintToken(account_1.address, "Solicy");
     tokenId = await erc721.getCurrentTokenId();
   });
 
@@ -53,7 +55,7 @@ describe("ERC 721", () => {
       );
     });
     it("Token minted successfully", async () => {
-      await erc721.mintToken(tempAccount_1.address, "Solicy");
+      await erc721.mintToken(account_1.address, "Solicy");
     });
     it("Recipient cannot be the owner of the contract", async () => {
       try {
@@ -68,13 +70,13 @@ describe("ERC 721", () => {
 
   describe("Token transfer", async () => {
     it ("Token transferred successfully", async () => {
-      const tempAccount_2 = account.create();
+      // const account_2 = account_1.create();
       tokenId = await erc721.getCurrentTokenId();
 
-      await erc721.transferFrom(tempAccount_1.address, tempAccount_2.address, tokenId-1)
+      await erc721.transferFrom(account_1.address, account_2.address, tokenId-1)
       const ownerAfterTransfer = await erc721.ownerOf(tokenId-1);
       
-      expect(ownerAfterTransfer).to.equal(tempAccount_2.address);
+      expect(ownerAfterTransfer).to.equal(account_2.address);
     })
   })
 
@@ -94,7 +96,7 @@ describe("ERC 721", () => {
       }
     })
     it("Token killed successfully", async () => {
-      await erc721.mintToken(tempAccount_1.address, "Solicy_1");
+      await erc721.mintToken(account_1.address, "Solicy_1");
       tokenId = await erc721.getCurrentTokenId();
       await erc721.killToken(tokenId - 1, 0);
 
@@ -129,7 +131,7 @@ describe("ERC 721", () => {
         expect(await erc721.getLockRecord(tokenId_)).to.equal(false);
         
         await mineNDayBlocks(1);
-        await erc721.unLockToken(tokenId_);
+        await erc721.connect(account_1).unLockToken(tokenId_);
         expect(await erc721.getLockRecord(tokenId_)).to.equal(true);
 
     })
@@ -137,39 +139,47 @@ describe("ERC 721", () => {
 
   describe("Experience", async () => {
     it ("Added experience successfully.", async () => {
-      const tokenId = await erc721.getCurrentTokenId();
+      const tokenId_ = tokenId - 1;
       const expToAdd = 1234;
       
-      await erc721.addExp(tokenId, expToAdd);
-      const tokenData = await erc721.getMetadataRecord(tokenId);
+      await erc721.connect(account_1).addExp(tokenId_, expToAdd);
+      const tokenData = await erc721.getMetadataRecord(tokenId_);
 
       expect(tokenData.experience).to.equal(1234);
     })
     it ("Claimed experience successfully. Lock Time fixed.", async () => {
-      const tokenId = await erc721.getCurrentTokenId();
+      const tokenId_ = tokenId - 1;
       const daysToLock = 11;
       const minedDaysAfterLock = 5;
 
-      await erc721.lockToken(tokenId, daysToLock);
+      await erc721.lockToken(tokenId_, daysToLock);
       await mineNDayBlocks(minedDaysAfterLock);
-      await erc721.claimExp(tokenId);
+      await erc721.connect(account_1).claimExp(tokenId_);
 
-      const tokenData = await erc721.getMetadataRecord(tokenId);
+      const tokenData = await erc721.getMetadataRecord(tokenId_);
 
       expect(tokenData.daysToLock).to.equal(daysToLock - minedDaysAfterLock);
       expect(tokenData.experience).to.equal(minedDaysAfterLock * 100);
     })
+    it ("Not locked token can't claim experience.", async () => {
+      try {
+        await erc721.claimExp(0);
+      } catch (error: any) {
+        expect(error.message)
+          .to.equal("VM Exception while processing transaction: reverted with reason string 'Only locked tokens can claim experience'");
+      }
+    })
     it ("Token rank successfully upgraded", async () => {
-      const tokenId = await erc721.getCurrentTokenId();
+      const tokenId_ = tokenId - 1;
       const daysToLock = 13;
       const minedDaysAfterLock = 11;
 
-      await erc721.lockToken(tokenId, daysToLock);
+      await erc721.lockToken(tokenId_, daysToLock);
       await mineNDayBlocks(minedDaysAfterLock);
-      await erc721.claimExp(tokenId);
-      await erc721.rankUp(tokenId)
+      await erc721.connect(account_1).claimExp(tokenId_);
+      await erc721.connect(account_1).rankUp(tokenId_);
 
-      const tokenData = await erc721.getMetadataRecord(tokenId);
+      const tokenData = await erc721.getMetadataRecord(tokenId_);
 
       expect(tokenData.rank).to.equal(1);
     })
