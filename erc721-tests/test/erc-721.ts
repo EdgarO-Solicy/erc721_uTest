@@ -2,8 +2,10 @@ import { Erc721 } from "../typechain-types";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { mine } from "@nomicfoundation/hardhat-network-helpers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 const BigNumber = require("bignumber.js");
+
 
 
 // smth wrong with this arithmetics. Days more than 10 going with +1
@@ -13,10 +15,9 @@ async function mineNDayBlocks(n: number) {
 
 describe("ERC 721", () => {
   let erc721: Erc721;
-  let tempAccount_1: any;
-  let owner: any;
-  let account_1: any;
-  let account_2: any;
+  let owner: SignerWithAddress;
+  let account_1: SignerWithAddress;
+  let account_2: SignerWithAddress;
   let tokenId: typeof BigNumber;
 
   beforeEach(async () => {
@@ -37,9 +38,11 @@ describe("ERC 721", () => {
     it("The token Name is correct", async () => {
       expect(await erc721.name()).to.equal("SolicyNFT");
     });
+
     it("The token Symbol is correct", async () => {
       expect(await erc721.symbol()).to.equal("HNFT");
     });
+
     it("The token BaseURI is correct", async () => {
       expect(await erc721.baseURI()).to.equal(
         "https://ipfs.io/ipfs/QmSsP68DJ3BrXSFFb3e5t7xtLnXZ2mRMutrUkvYiL5yXK6/"
@@ -54,23 +57,19 @@ describe("ERC 721", () => {
         `https://ipfs.io/ipfs/QmSsP68DJ3BrXSFFb3e5t7xtLnXZ2mRMutrUkvYiL5yXK6/${currentTokenId}.json`
       );
     });
+
     it("Token minted successfully", async () => {
       await erc721.mintToken(account_1.address, "Solicy");
     });
+
     it("Recipient cannot be the owner of the contract", async () => {
-      try {
-        await erc721.mintToken(erc721.owner(), "Solicy");
-      } catch (error: any) {
-        expect(error.message).to.equal(
-          "VM Exception while processing transaction: reverted with reason string 'Recipient cannot be the owner of the contract'"
-        );
-      }
+      await expect(erc721.mintToken(erc721.owner(), "Solicy")).
+        to.be.rejectedWith("VM Exception while processing transaction: reverted with reason string 'Recipient cannot be the owner of the contract'")
     });
   });
 
   describe("Token transfer", async () => {
     it ("Token transferred successfully", async () => {
-      // const account_2 = account_1.create();
       tokenId = await erc721.getCurrentTokenId();
 
       await erc721.transferFrom(account_1.address, account_2.address, tokenId-1)
@@ -82,37 +81,27 @@ describe("ERC 721", () => {
 
   describe("Kill token", () => {
     it("Can't kill token with 0 value address", async () => {
-      try {
-        await erc721.killToken(3, 0);
-      } catch (error: any) {
-        expect(error.message).to.equal("VM Exception while processing transaction: reverted with reason string 'ERC721: invalid token ID'");
-      }
+      await expect(erc721.killToken(3, 0)).
+        to.be.rejectedWith("VM Exception while processing transaction: reverted with reason string 'ERC721: invalid token ID'")
     })
+
     it("Can't kill token while experience receiver token is with 0 value address", async () => {
-      try {
-        await erc721.killToken(0, 20);
-      } catch (error: any) {
-        expect(error.message).to.equal("VM Exception while processing transaction: reverted with reason string 'ERC721: invalid receiver token ID'");
-      }
+      await expect(erc721.killToken(0, 20)).
+        to.be.rejectedWith("VM Exception while processing transaction: reverted with reason string 'ERC721: invalid receiver token ID'")
     })
+
     it("Token killed successfully", async () => {
       await erc721.mintToken(account_1.address, "Solicy_1");
       tokenId = await erc721.getCurrentTokenId();
       await erc721.killToken(tokenId - 1, 0);
 
-      try {
-        await erc721.ownerOf(tokenId - 1);
-      } catch (error: any) {
-        expect(error.reason).to.equal("ERC721: invalid token ID");
-      }
+      await expect(erc721.ownerOf(tokenId - 1)).
+        to.be.rejectedWith("ERC721: invalid token ID")
     });
+
     it("Burn functionality is blocked", async () => {
-      try {
-        await erc721.burn(10);
-        console.log("we are here");
-      } catch (error: any) {
-        expect(error.message).to.equal("VM Exception while processing transaction: reverted with reason string 'Explicitly burning of token is blocked'");
-      }
+    await expect(erc721.burn(10)).
+      to.be.rejectedWith("VM Exception while processing transaction: reverted with reason string 'Explicitly burning of token is blocked'")
     })
   })
 
@@ -147,6 +136,7 @@ describe("ERC 721", () => {
 
       expect(tokenData.experience).to.equal(1234);
     })
+
     it ("Claimed experience successfully. Lock Time fixed.", async () => {
       const tokenId_ = tokenId - 1;
       const daysToLock = 11;
@@ -161,14 +151,12 @@ describe("ERC 721", () => {
       expect(tokenData.daysToLock).to.equal(daysToLock - minedDaysAfterLock);
       expect(tokenData.experience).to.equal(minedDaysAfterLock * 100);
     })
+
     it ("Not locked token can't claim experience.", async () => {
-      try {
-        await erc721.claimExp(0);
-      } catch (error: any) {
-        expect(error.message)
-          .to.equal("VM Exception while processing transaction: reverted with reason string 'Only locked tokens can claim experience'");
-      }
+      await expect(erc721.claimExp(0)).
+        to.be.rejectedWith("VM Exception while processing transaction: reverted with reason string 'Only locked tokens can claim experience'")
     })
+
     it ("Token rank successfully upgraded", async () => {
       const tokenId_ = tokenId - 1;
       const daysToLock = 13;
